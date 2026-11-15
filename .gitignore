@@ -1,0 +1,13 @@
+node_modules
+dist
+
+# Local / machine-specific settings — never committed. See .env.example.
+.env
+.env.*
+!.env.example
+*.local
+
+# Editor and tool state
+.vscode/
+.idea/
+.DS_Store
