@@ -19,6 +19,40 @@ If depth looks inverted, tick **Swap left / right eye**. Development and testing
 glasses; reports from other hardware are welcome. The optional USB extras (head tracking, switching
 3D mode from the page) are RayNeo-only for now — see [Head tracking](#head-tracking-experimental).
 
+## Supported devices
+
+⭐ = recommended.
+
+| Device | Side-by-side 3D | Head tracking (WebHID) | 3D mode switch from page | WebXR VR | WebXR AR (passthrough) | Tested |
+|---|:-:|:-:|:-:|:-:|:-:|---|
+| ⭐ **RayNeo GT / GT Max** | ✅ | ✅ | ⚠️ ¹ | — | — | Yes (development hardware) |
+| Other RayNeo glasses (Air series) | ✅ | ⚠️ ² | ⚠️ ¹ | — | — | No |
+| XREAL, VITURE, Rokid, TCL and other USB-C display glasses | ✅ | — | — | — | — | No |
+| 3D monitors and TVs with an SBS mode | ✅ | — | — | — | — | No |
+| ⭐ **Meta Quest 3 / 3S** (Meta Quest Browser) | — | — | — | ✅ | ✅ | Emulated (IWER) |
+| Pico 4 / 4 Ultra (Pico Browser) | — | — | — | ✅ | ⚠️ ³ | No |
+| Android XR headsets (Chrome) | — | — | — | ✅ | ✅ | No |
+| Apple Vision Pro (Safari) | — | — | — | ✅ | — ⁴ | No |
+| PC VR headsets via OpenXR (SteamVR, WMR) in Chrome / Edge | — | — | — | ✅ | — | No |
+
+✅ supported · ⚠️ partial or unverified · — not available
+
+1. Uses display commands known from the RayNeo Air firmware; GT Max firmware may ignore them.
+   Use the button on the glasses if the screen doesn't change.
+2. Only the GT / GT Max USB id (`3941:af50`) is matched. Other models need their id added in
+   `src/headtracking.js`.
+3. Depends on the Pico Browser version.
+4. Safari on visionOS offers `immersive-vr` only.
+
+**Why these are recommended:**
+
+- **RayNeo GT / GT Max** is the development hardware. It is the only display glasses with every
+  glasses feature: side-by-side 3D, head tracking, and the pinned screen.
+- **Meta Quest 3 / 3S** has the most complete WebXR browser. Both VR and passthrough AR work, and
+  so do controller input and the recentre gesture.
+
+Display glasses are never WebXR devices; see [WebXR headsets](#webxr-headsets).
+
 ## Run
 
 ```sh
@@ -121,6 +155,27 @@ On Linux the browser needs hidraw access:
 echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="3941", ATTRS{idProduct}=="af50", MODE="0660", TAG+="uaccess"' \
   | sudo tee /etc/udev/rules.d/70-rayneo.rules && sudo udevadm control --reload && sudo udevadm trigger
 ```
+
+## WebXR headsets
+
+When the browser exposes a WebXR runtime, the **WebXR headset** section offers **Enter VR** and,
+where passthrough is supported, **Enter AR**. Examples: the Quest, Pico and Android XR browsers,
+Safari on Apple Vision Pro, desktop Chrome/Edge with an OpenXR runtime (SteamVR, WMR), or the
+Immersive Web Emulator extension for testing. The runtime does the stereo rendering and tracking.
+The side-by-side settings and the WebHID head tracker are not used in a session.
+
+- **Models and splats.** What the orbit camera shows when you enter is placed in front of you,
+  level with the floor. **Depth** sets the scale in the same way it sets on-screen stereo: at
+  1.00× the orbit target is about 1.9 m away. **Reset view** and loading a new file refit the view.
+- **Video.** A flat video is a screen fixed in the room 2.5 m ahead, sized with **Screen size**.
+  VR180 and VR360 video surround you. Each eye gets its own half of the frame. YouTube can't be shown
+  in a session.
+- **In the headset:** trigger or pinch plays and pauses a video. Grip, or `C`, recentres.
+
+Display glasses such as RayNeo, XREAL and VITURE never appear here. To the browser they are a
+plain external monitor and register no XR runtime, so `immersive-vr` is not offered on them, and
+`inline` sessions give no stereo and no tracking. On glasses, use the side-by-side layout and
+[head tracking](#head-tracking-experimental) instead.
 
 ## License
 
