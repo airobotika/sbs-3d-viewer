@@ -23,19 +23,23 @@ glasses; reports from other hardware are welcome. The optional USB extras (head 
 
 ⭐ = recommended.
 
-| Device | Side-by-side 3D | Head tracking (WebHID) | 3D mode switch from page | WebXR VR | WebXR AR (passthrough) | Tested |
+| Device | Side-by-side 3D | Head tracking | 3D mode switch from page | WebXR VR | WebXR AR (passthrough) | Tested |
 |---|:-:|:-:|:-:|:-:|:-:|---|
-| ⭐ **RayNeo GT / GT Max** | ✅ | ✅ | ⚠️ ¹ | — | — | Yes (development hardware) |
+| ⭐ **RayNeo GT / GT Max** | ✅ | ✅ 3DoF, WebHID | ⚠️ ¹ | — | — | Yes (development hardware) |
 | Other RayNeo glasses (Air series) | ✅ | ⚠️ ² | ⚠️ ¹ | — | — | No |
 | XREAL, VITURE, Rokid, TCL and other USB-C display glasses | ✅ | — | — | — | — | No |
 | 3D monitors and TVs with an SBS mode | ✅ | — | — | — | — | No |
-| ⭐ **Meta Quest 3 / 3S** (Meta Quest Browser) | — | — | — | ✅ | ✅ | Emulated (IWER) |
-| Pico 4 / 4 Ultra (Pico Browser) | — | — | — | ✅ | ⚠️ ³ | No |
-| Android XR headsets (Chrome) | — | — | — | ✅ | ✅ | No |
-| Apple Vision Pro (Safari) | — | — | — | ✅ | — ⁴ | No |
-| PC VR headsets via OpenXR (SteamVR, WMR) in Chrome / Edge | — | — | — | ✅ | — | No |
+| ⭐ **Meta Quest 3 / 3S** (Meta Quest Browser) | — | ✅ 6DoF, WebXR | — | ✅ | ✅ | Emulated (IWER) |
+| Pico 4 / 4 Ultra (Pico Browser) | — | ✅ 6DoF, WebXR | — | ✅ | ⚠️ ³ | No |
+| Android XR headsets (Chrome) | — | ✅ 6DoF, WebXR | — | ✅ | ✅ | No |
+| Apple Vision Pro (Safari) | — | ✅ 6DoF, WebXR | — | ✅ | — ⁴ | No |
+| PC VR headsets via OpenXR (SteamVR, WMR) in Chrome / Edge | — | ✅ 6DoF, WebXR | — | ✅ | — | No |
 
 ✅ supported · ⚠️ partial or unverified · — not available
+
+Head tracking comes from two sources. Display glasses get 3DoF tracking (rotation only) through
+this viewer's own WebHID driver, which reads the glasses' IMU over USB. Headsets get 6DoF tracking
+(rotation and position) from their own WebXR runtime once you press **Enter VR / AR**.
 
 1. Uses display commands known from the RayNeo Air firmware; GT Max firmware may ignore them.
    Use the button on the glasses if the screen doesn't change.
