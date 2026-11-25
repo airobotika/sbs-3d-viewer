@@ -1,7 +1,8 @@
-# SBS 3D Viewer
+# Stereoscope
 
-Browser viewer that shows 3D models, Gaussian splats and 3D videos as a side-by-side (SBS) stereo
-pair for AR/XR display glasses — left half of the picture to the left eye, right half to the right.
+Browser viewer that shows 3D models, Gaussian splats and 3D videos in stereo. On AR/XR display
+glasses it outputs a side-by-side (SBS) pair: the left half of the picture goes to the left eye,
+the right half to the right. On WebXR headsets it renders in an immersive VR or AR session.
 
 ## Compatible glasses
 
