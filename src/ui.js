@@ -339,7 +339,7 @@ export function createUI({ state, set, actions, samples }) {
           : `No WebXR headset found${xs.available ? '' : ' (this browser has no WebXR)'}. Display glasses such as RayNeo or XREAL are plain external screens to the browser and never show up here — use the side-by-side layout and head tracking above instead.`;
     });
 
-    const title = el('h1', { text: 'SBS 3D Viewer', class: 'settings-title' });
+    const title = el('h1', { text: 'Stereoscope', class: 'settings-title' });
     const panel = el('div', { class: 'panel main' },
       el('div', { class: 'panel-header' }, title,
         button('Hide', () => set({ showUI: false }), 'panel-hide')),

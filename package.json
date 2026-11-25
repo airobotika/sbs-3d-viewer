@@ -1,7 +1,7 @@
 {
-  "name": "sbs-3d-viewer",
+  "name": "stereoscope",
   "version": "1.0.0",
-  "description": "Browser viewer that shows 3D models, Gaussian splats and 3D videos side-by-side for AR/XR glasses",
+  "description": "Browser stereo viewer for 3D models, Gaussian splats and 3D video, on AR/XR display glasses (side-by-side) and WebXR headsets",
   "license": "MIT",
   "scripts": {
     "dev": "vite",
