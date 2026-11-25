@@ -312,6 +312,9 @@ export function createUI({ state, set, actions, samples }) {
     const fsButton = button('', () => actions.toggleFullscreen(), 'primary');
     const browseButton = button('', () => set({ browserOpen: !state.browserOpen }), 'primary');
     const msaa = el('input', { type: 'checkbox', onchange: () => actions.setAntialias(msaa.checked) });
+    const vrButton = button('', () => actions.toggleXR('vr'), 'primary');
+    const arButton = button('', () => actions.toggleXR('ar'));
+    const xrInfo = el('p', { class: 'small' });
 
     syncers.push(() => {
       status.textContent = state.status;
@@ -324,6 +327,16 @@ export function createUI({ state, set, actions, samples }) {
       fsButton.textContent = state.fullscreen ? 'Exit fullscreen' : 'Fullscreen';
       browseButton.textContent = state.browserOpen ? 'Close files' : 'Browse files…';
       msaa.checked = state.antialias;
+      const xs = state.xrSupport;
+      vrButton.hidden = !xs.vr || state.xr === 'ar';
+      arButton.hidden = !xs.ar || state.xr === 'vr';
+      vrButton.textContent = state.xr === 'vr' ? 'Exit VR' : 'Enter VR';
+      arButton.textContent = state.xr === 'ar' ? 'Exit AR' : 'Enter AR (passthrough)';
+      xrInfo.textContent = state.xr
+        ? 'In the headset: trigger / pinch = play or pause video · grip = recentre (or C). Depth sets the model\'s scale, Screen size the video screen.'
+        : xs.vr || xs.ar
+          ? 'A WebXR headset is available. The current view is placed in front of you.'
+          : `No WebXR headset found${xs.available ? '' : ' (this browser has no WebXR)'}. Display glasses such as RayNeo or XREAL are plain external screens to the browser and never show up here — use the side-by-side layout and head tracking above instead.`;
     });
 
     const title = el('h1', { text: 'SBS 3D Viewer', class: 'settings-title' });
@@ -376,6 +389,10 @@ export function createUI({ state, set, actions, samples }) {
       })),
       slider('Screen size', 'screenSize', 0.25, 1, 0.05, (v) => `${Math.round(v * 100)}%`),
       slider('Glasses FOV', 'displayFov', 30, 75, 1, (v) => `${v}°`),
+
+      el('h2', { text: 'WebXR headset' }),
+      el('div', { class: 'row' }, vrButton, arButton),
+      xrInfo,
 
       el('h2', { text: 'Rendering' }),
       el('label', { class: 'check' }, msaa, 'Anti-alias meshes (reloads page)'),

@@ -7,6 +7,7 @@ import {
   FileVideo, YouTubeVideo, createDome, eyeAspect, guessFormat, isVideoName, setEyeUV, youTubeId,
 } from './video.js';
 import { HeadTracker } from './headtracking.js';
+import { XrOutput, XR_IPD } from './xr.js';
 import { FileBrowser } from './filebrowser.js';
 import { createUI } from './ui.js';
 
@@ -70,6 +71,8 @@ const state = {
   hint: '',
   progress: -1,
   headTracking: false,
+  xr: null, // 'vr' | 'ar' while a WebXR session runs
+  xrSupport: { available: false, vr: false, ar: false },
   fullscreen: false,
   antialias: store.get('antialias', false),
 };
@@ -148,14 +151,24 @@ controls.autoRotate = state.autoRotate;
 controls.autoRotateSpeed = 1.5;
 controls.zoomToCursor = false;
 
+// world: identity on screen; in WebXR it places the desktop view in front of the viewer.
+const world = new THREE.Group();
 const pivot = new THREE.Group(); // carries the up-axis correction
-scene.add(pivot);
+world.add(pivot);
+scene.add(world);
 
 const model = { object: null, media: null, kind: null, mixer: null, radius: 1, up: 0 };
 const timer = new THREE.Timer();
 const tracker = new HeadTracker({
   onChange: () => set({ headTracking: tracker.connected }),
 });
+
+const xr = new XrOutput({
+  renderer,
+  onChange: () => set({ xr: xr.mode, xrSupport: { available: xr.available, ...xr.supported } }),
+  onSelect: () => { if (model.media) actions.videoToggle(); },
+});
+state.xrSupport = { available: xr.available, ...xr.supported };
 
 const files = new FileBrowser({ onChange: (browser) => set({ browser }) });
 state.browser = files.snapshot();
@@ -165,6 +178,7 @@ state.browser = files.snapshot();
 // ---------------------------------------------------------------------------
 
 function onResize() {
+  if (renderer.xr.isPresenting) return; // the runtime owns the framebuffer size
   const w = window.innerWidth;
   const h = window.innerHeight;
   // Splat fill-rate is the bottleneck; don't multiply it by a phone's 3x pixel ratio.
@@ -416,10 +430,59 @@ window.addEventListener('keyup', (e) => {
 });
 window.addEventListener('blur', () => heldArrows.clear());
 
+// --- WebXR -------------------------------------------------------------------------------
+// In a headset the runtime supplies both eye cameras and the head pose. The orbit camera's pose
+// from when the session started (or the last refit) is mapped onto the viewer's head, so the
+// model sits in front of them as it did on screen. The scale follows the Depth slider the same
+// way the on-screen stereo does: the scene is sized so the real eye separation matches the
+// virtual one (Depth 1 puts the orbit target about 1.9 m away).
+const xrDesk = { position: new THREE.Vector3(), quaternion: new THREE.Quaternion(), dist: 1 };
+
+function captureXrDesk() {
+  xrDesk.position.copy(camera.position);
+  xrDesk.quaternion.copy(camera.quaternion);
+  xrDesk.dist = Math.max(1e-6, camera.position.distanceTo(controls.target));
+}
+
+renderer.xr.addEventListener('sessionstart', () => {
+  captureXrDesk();
+  controls.enabled = false;
+  heldArrows.clear();
+  renderer.setScissorTest(false); // three.js sets each eye's viewport itself
+});
+
+renderer.xr.addEventListener('sessionend', () => {
+  world.position.set(0, 0, 0);
+  world.quaternion.identity();
+  world.scale.setScalar(1);
+  camera.position.copy(xrDesk.position);
+  camera.quaternion.copy(xrDesk.quaternion);
+  camera.scale.setScalar(1);
+  controls.enabled = !model.media;
+  renderer.setScissorTest(true);
+  onResize();
+});
+
+function renderXR() {
+  if (model.kind === 'video') return xr.renderVideo(model.media, state, camera);
+  if (model.kind === 'youtube') return renderer.render(xr.blank, camera);
+  const scale = XR_IPD / ((xrDesk.dist / 30) * Math.max(state.depth, 0.05));
+  xr.place(world, xrDesk.position, xrDesk.quaternion, scale);
+  camera.near = 0.01;
+  camera.far = 1000;
+  const xrCamera = renderer.xr.getCamera();
+  const update = spark.updateInternal
+    ? spark.updateInternal({ scene, camera: xrCamera, autoUpdate: true })
+    : spark.update({ scene, camera: xrCamera });
+  update.catch(() => {});
+  renderer.render(scene, camera);
+}
+
 function frame(time) {
   timer.update(time);
   const dt = Math.min(timer.getDelta(), 0.1);
   if (model.mixer && state.animate) model.mixer.update(dt);
+  if (renderer.xr.isPresenting) return renderXR();
   if (model.media) heldArrows.clear();
   else applyHeldArrows(dt);
   controls.update(dt);
@@ -510,12 +573,14 @@ function fitView() {
   controls.minDistance = radius * 1e-3;
   controls.maxDistance = radius * 40;
   controls.update();
+  if (renderer.xr.isPresenting) captureXrDesk();
 }
 
 function clearModel() {
   if (model.media) {
     model.media.dispose();
     videoMaterial.map = null;
+    xr.releaseVideo();
     controls.enabled = true;
     document.body.classList.remove('has-video');
     state.video = null;
@@ -648,6 +713,7 @@ async function loadMedia(label, create, historyEntry = null) {
     else if (!['sbs', 'hsbs'].includes(guess.format)) note = 'YouTube top-bottom video is shown as one frame. Download it to split the two eyes.';
     guess.projection = 'flat';
     media.onError = (err) => set({ status: err.message, statusKind: 'error' });
+    if (xr.presenting) note = 'YouTube cannot be shown inside a WebXR session. Exit it to watch, or download the video and open the file.';
   }
   const size = media.width ? ` · ${media.width}×${media.height}` : '';
   set({
@@ -758,7 +824,20 @@ const actions = {
     pivot.rotation.set((model.up * Math.PI) / 2, 0, 0);
     fitView();
   },
-  recentre: () => tracker.recentre(),
+  recentre: () => (xr.presenting ? xr.recentre() : tracker.recentre()),
+
+  async toggleXR(kind) {
+    try {
+      if (xr.presenting) return await xr.exit();
+      if (model.kind === 'youtube') {
+        return set({ note: 'YouTube plays through an embedded web page, which WebXR cannot show. Download the video and open the file instead.' });
+      }
+      // Splats are fill-rate bound; render them below the headset's native resolution.
+      await xr.enter(kind, { framebufferScale: model.kind === 'splat' ? 0.75 : 1 });
+    } catch (err) {
+      set({ note: `Could not start WebXR: ${err.message}` });
+    }
+  },
 
   videoToggle() {
     const media = model.media;
@@ -879,4 +958,4 @@ files.restore();
 if (state.url) actions.openUrl(state.url);
 
 // Handy for debugging from the console.
-window.viewer = { files, stereo, state, set, actions, scene, camera, renderer, spark, model, tracker };
+window.viewer = { files, stereo, state, set, actions, scene, camera, renderer, spark, model, tracker, xr, world };
