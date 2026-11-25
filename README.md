@@ -16,8 +16,9 @@ glasses, such as those from XREAL, VITURE, Rokid, RayNeo and TCL.
 | No 3D mode | **2D** |
 
 If depth looks inverted, tick **Swap left / right eye**. Development and testing happen on RayNeo
-glasses; reports from other hardware are welcome. The optional USB extras (head tracking, switching
-3D mode from the page) are RayNeo-only for now — see [Head tracking](#head-tracking-experimental).
+glasses; reports from other hardware are welcome. The optional USB extras are limited to some
+glasses: head tracking works with RayNeo, XREAL Air and Rokid, and switching 3D mode from the page
+with RayNeo only. See [Head tracking](#head-tracking-experimental).
 
 ## Supported devices
 
@@ -26,8 +27,12 @@ glasses; reports from other hardware are welcome. The optional USB extras (head 
 | Device | Side-by-side 3D | Head tracking | 3D mode switch from page | WebXR VR | WebXR AR (passthrough) | Tested |
 |---|:-:|:-:|:-:|:-:|:-:|---|
 | ⭐ **RayNeo GT / GT Max** | ✅ | ✅ 3DoF, WebHID | ⚠️ ¹ | — | — | Yes (development hardware) |
-| Other RayNeo glasses (Air series) | ✅ | ⚠️ ² | ⚠️ ¹ | — | — | No |
-| XREAL, VITURE, Rokid, TCL and other USB-C display glasses | ✅ | — | — | — | — | No |
+| RayNeo Air 3S Pro / Air 4 Pro | ✅ | ⚠️ 3DoF, WebHID ² | ⚠️ ¹ | — | — | No |
+| XREAL Air / Air 2 / Air 2 Pro / Air 2 Ultra | ✅ | ⚠️ 3DoF, WebHID ² | — | — | — | No |
+| Rokid Air / Max | ✅ | ⚠️ 3DoF, WebHID ² | — | — | — | No |
+| XREAL One / One Pro | ✅ | — ⁵ | — | — | — | No |
+| VITURE | ✅ | — ⁶ | — | — | — | No |
+| TCL and other USB-C display glasses | ✅ | — | — | — | — | No |
 | 3D monitors and TVs with an SBS mode | ✅ | — | — | — | — | No |
 | ⭐ **Meta Quest 3 / 3S** (Meta Quest Browser) | — | ✅ 6DoF, WebXR | — | ✅ | ✅ | Emulated (IWER) |
 | Pico 4 / 4 Ultra (Pico Browser) | — | ✅ 6DoF, WebXR | — | ✅ | ⚠️ ³ | No |
@@ -43,10 +48,13 @@ this viewer's own WebHID driver, which reads the glasses' IMU over USB. Headsets
 
 1. Uses display commands known from the RayNeo Air firmware; GT Max firmware may ignore them.
    Use the button on the glasses if the screen doesn't change.
-2. Only the GT / GT Max USB id (`3941:af50`) is matched. Other models need their id added in
-   `src/headtracking.js`.
+2. The protocol comes from open-source drivers and hasn't been tried on these glasses here. If
+   the viewer connects but no motion arrives, it says so.
 3. Depends on the Pico Browser version.
 4. Safari on visionOS offers `immersive-vr` only.
+5. These glasses stream their motion data over a network connection on the USB cable, which a web
+   page can't open.
+6. VITURE motion data is only available through VITURE's closed SDK, which a web page can't use.
 
 **Why these are recommended:**
 
@@ -135,12 +143,27 @@ URLs are fetched directly; if the host sends no CORS headers the dev/preview ser
 
 ## Head tracking (experimental)
 
-Head tracking currently supports **RayNeo glasses only** (USB id `3941:af50`). Everything else
-in the viewer works without it, and glasses that anchor the screen themselves can keep doing so.
+Everything else in the viewer works without head tracking, and glasses that anchor the screen
+themselves can keep doing so.
 
-"Start head tracking" reads the glasses' IMU over WebHID (Chrome/Edge desktop only) using a
-community-reverse-engineered protocol — see `src/headtracking.js`, which is also the place to add
-other glasses. Two modes:
+"Start head tracking" reads the glasses' IMU over WebHID, in Chrome or Edge on a computer. Each
+vendor uses its own USB protocol. The ones below were worked out by the open-source projects named
+in [src/headtracking.js](src/headtracking.js), which is also where to add more glasses.
+
+| Glasses | USB id (vendor:product) | Protocol source | Tried on hardware |
+|---|---|---|---|
+| RayNeo GT / GT Max | `3941:af50` | HaloneXR/halone, verncat/RayNeo-Air-3S-Pro-OpenVR | Yes |
+| RayNeo Air 3S Pro / Air 4 Pro | `1bbb:af50` | verncat/RayNeo-Air-3S-Pro-OpenVR | No |
+| XREAL Air | `3318:0424` | badicsalex/ar-drivers-rs | No |
+| XREAL Air 2 | `3318:0428` | badicsalex/ar-drivers-rs | No |
+| XREAL Air 2 Pro | `3318:0432` | badicsalex/ar-drivers-rs | No |
+| XREAL Air 2 Ultra | `3318:0426` | badicsalex/ar-drivers-rs | No |
+| Rokid Air / Max and later | `04d2:162b`–`162f`, `04d2:2002`, `04d2:2180` | badicsalex/ar-drivers-rs (Air, Max) | No |
+
+The Rokid ids beyond the Air and Max come from the Rokid SDK's device list. Whether those models
+use the same report format is unknown.
+
+There are two modes:
 
 - **Look around** — turning your head turns the camera (models) or the view inside a VR video.
 - **Pinned screen (3D canvas)** — the stereo image sits on a virtual screen that stays put in
@@ -150,14 +173,19 @@ other glasses. Two modes:
 Press `C` (or "Recentre") while looking straight ahead to re-anchor. Set **Glasses FOV** to the
 diagonal field of view from the glasses' spec sheet so the pinned screen stays still in space as you turn.
 
-**Glasses 3D on / Glasses 2D** ask the glasses to switch 3D mode over the same USB connection;
-if the firmware ignores it, use the button on the glasses.
+**Glasses 3D on / Glasses 2D** ask the glasses to switch 3D mode over the same USB connection.
+Only RayNeo glasses have a known command for this. If nothing changes, use the button on the glasses.
 
-On Linux the browser needs hidraw access:
+On Linux the browser needs hidraw access. This rule covers every vendor in the table:
 
 ```sh
-echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="3941", ATTRS{idProduct}=="af50", MODE="0660", TAG+="uaccess"' \
-  | sudo tee /etc/udev/rules.d/70-rayneo.rules && sudo udevadm control --reload && sudo udevadm trigger
+sudo tee /etc/udev/rules.d/70-xr-glasses.rules <<'EOF'
+KERNEL=="hidraw*", ATTRS{idVendor}=="3941", MODE="0660", TAG+="uaccess"
+KERNEL=="hidraw*", ATTRS{idVendor}=="1bbb", MODE="0660", TAG+="uaccess"
+KERNEL=="hidraw*", ATTRS{idVendor}=="3318", MODE="0660", TAG+="uaccess"
+KERNEL=="hidraw*", ATTRS{idVendor}=="04d2", MODE="0660", TAG+="uaccess"
+EOF
+sudo udevadm control --reload && sudo udevadm trigger
 ```
 
 ## WebXR headsets

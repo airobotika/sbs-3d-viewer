@@ -378,7 +378,7 @@ export function createUI({ state, set, actions, samples }) {
       check('Auto-rotate', 'autoRotate'),
       check('Play animations', 'animate'),
 
-      el('h2', { text: 'Head tracking (experimental · RayNeo)' }),
+      el('h2', { text: 'Head tracking (experimental · USB glasses)' }),
       el('div', { class: 'row' }, htButton, button('Recentre', () => actions.recentre())),
       el('div', { class: 'row' },
         button('Glasses 3D on', () => actions.setGlasses3D(true)),

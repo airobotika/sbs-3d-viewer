@@ -852,8 +852,14 @@ const actions = {
 
   async toggleHeadTracking() {
     try {
-      if (tracker.connected) await tracker.disconnect();
-      else await tracker.connect();
+      if (tracker.connected) return await tracker.disconnect();
+      if (!(await tracker.connect())) return;
+      // Most of the protocols are reverse-engineered and unverified; say so if nothing arrives.
+      setTimeout(() => {
+        if (tracker.connected && tracker.samples === 0) {
+          set({ note: `Connected to ${tracker.deviceName}, but no motion data has arrived. This model's protocol may differ from the one the viewer knows — see the README.` });
+        }
+      }, 3000);
     } catch (err) {
       set({ note: err.message });
     }
